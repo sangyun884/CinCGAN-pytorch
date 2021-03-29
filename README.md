@@ -11,7 +11,7 @@ Pytorch implementation of ["Unsupervised Image Super-Resolution using Cycle-in-C
 |---|---|
 |Bicubic|24.21|
 |EDSR|23.93|
-|CinCGAN|24.92|
+|CinCGAN|<span style="color:red">24.92</span>|
 
 # Training Details
 
