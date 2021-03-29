@@ -1,6 +1,4 @@
 # CinCGAN-pytorch
-Pytorch implementation of "Unsupervised Image Super-Resolution using Cycle-in-Cycle Generative Adversarial Networks", CVPR 2018
-# Readme
 
 Pytorch implementation of [**"Unsupervised Image Super-Resolution using Cycle-in-Cycle Generative Adversarial Networks"](https://openaccess.thecvf.com/content_cvpr_2018_workshops/w13/html/Yuan_Unsupervised_Image_Super-Resolution_CVPR_2018_paper.html), CVPR 2018**
 
