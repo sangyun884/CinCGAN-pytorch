@@ -15,7 +15,7 @@ Pytorch implementation of ["Unsupervised Image Super-Resolution using Cycle-in-C
 
 # Training Details
 
-After training the inner cycle for 40K iterations, I froze the parameters and fine-tuned the outer cycle for few hundred iterations. While training the outer cycle, gamma0 was set to 0.1, gamma2 to 150, and other parameters were set to default values. 
+After training the inner cycle for 40K iterations with default setting, I froze the parameters and fine-tuned the outer cycle for few hundred iterations. While training the outer cycle, gamma0 was set to 0.1, gamma2 to 150, and outer_lr was set to 1e-5. Other parameters were set to default values. 
 
 # Checkpoints
 
@@ -34,5 +34,5 @@ python3 main.py --phase train_inner --train_s_path "YOUR PATH" --train_t_path "Y
 ## Train Outer Cycle
 
 ```python
-python3 main.py --inner_ckpt_path ".../.../inner_ckpt.pt" --outer_ckpt_path ".../.../EDSR_x4.pt"--phase train_outer --gamma0 0.1 --gamma2 150 --train_s_path "YOUR PATH" --train_t_path "YOUR PATH" --test_s_path "YOUR PATH" --test_t_path "YOUR PATH"
+python3 main.py --inner_ckpt_path ".../.../inner_ckpt.pt" --outer_ckpt_path ".../.../EDSR_x4.pt"--phase train_outer --gamma0 0.1 --gamma2 150 --outer_lr 1e-5 --skip_inner True --train_s_path "YOUR PATH" --train_t_path "YOUR PATH" --test_s_path "YOUR PATH" --test_t_path "YOUR PATH"
 ```
