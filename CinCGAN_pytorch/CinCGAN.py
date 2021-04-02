@@ -233,7 +233,7 @@ class CinCGAN():
         print(f"NEPTUNE : {self.neptune}")
         if self.neptune:
             neptune.init(project_qualified_name='ml.swlee/CinCGAN',
-                        api_token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5haSIsImFwaV91cmwiOiJodHRwczovL3VpLm5lcHR1bmUuYWkiLCJhcGlfa2V5IjoiYmVhNmFlOGMtZDRmZS00NzIyLWJkYzgtNTcyZTk0ZTM5YzM1In0=')
+                        api_token = 'YOUR_TOKEN')
             neptune.create_experiment(params = self.params)
         if self.resume:
             start_iter = self.resume_iter
