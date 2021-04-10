@@ -15,7 +15,7 @@ Pytorch implementation of ["Unsupervised Image Super-Resolution using Cycle-in-C
 
 # Training Details
 
-After training the inner cycle for 400K iterations with default setting, I froze the parameters and fine-tuned the outer cycle for few hundred iterations. While training the outer cycle, gamma0 was set to 0.1, gamma2 to 150, and outer_lr was set to 1e-5. Other parameters were set to default values. 
+After training the inner cycle for 400K iterations with default setting, I froze the inner-cycle and fine-tuned the outer cycle for few hundred iterations. While training the outer cycle, gamma0 was set to 0.1, gamma2 to 150, and outer_lr was set to 1e-5. Other parameters were set to default values. 
 
 # Checkpoints
 
