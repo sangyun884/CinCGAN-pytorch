@@ -5,7 +5,7 @@ Pytorch implementation of ["Unsupervised Image Super-Resolution using Cycle-in-C
 # **Experiment Results**
 
 
-## NTIRE2020 - Average PSNR of Validation Set(x4)
+## NTIRE2020 Track 1 - Average PSNR of Validation Set(x4)
 
 |Name|PSNR|
 |---|---|
