@@ -7,7 +7,7 @@ Pytorch implementation of ["Unsupervised Image Super-Resolution using Cycle-in-C
 
 ## NTIRE2020 Track 1 - Average PSNR of Validation Set(x4)
 
-|Name|PSNR|
+|Name|PSNR(RGB)|
 |---|---|
 |Bicubic|24.21|
 |EDSR|23.93|
