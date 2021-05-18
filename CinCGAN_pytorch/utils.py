@@ -60,11 +60,12 @@ def pil_batch_loader(root_path, bsize):
     return result
 
 class PSNR(object):
-    def __init__(self, gpu, val_max=1, val_min=0):
+    def __init__(self, gpu, val_max=1, val_min=0, ycbcr=True):
         super(PSNR,self).__init__()
         self.val_max = val_max
         self.val_min = val_min
         self.gpu = gpu
+        self.ycbcr = ycbcr
     
     def __call__(self,x,y):
         """
@@ -74,12 +75,43 @@ class PSNR(object):
             y = y.detach().cpu()
         """
         assert len(x.size()) == len(y.size())
-        if len(x.size()) == 3:
-            mse = torch.mean((y-x)**2)
-            psnr = 20*torch.log10(torch.tensor(self.val_max-self.val_min, dtype=torch.float).cuda(self.gpu)) - 10*torch.log10(mse)
-            return psnr
-        elif len(x.size()) == 4:
-            mse = torch.mean((y-x)**2, dim=[1,2,3])
+        with torch.no_grad():
+            x_lum = rgb_to_ycbcr(x)[:,0]
+            y_lum = rgb_to_ycbcr(y)[:,0]
+            # if len(x.size()) == 3:
+            #     mse = torch.mean((y-x)**2)
+            #     psnr = 20*torch.log10(torch.tensor(self.val_max-self.val_min, dtype=torch.float).cuda(self.gpu)) - 10*torch.log10(mse)
+            #     return psnr
+            # elif len(x.size()) == 4:
+        
+            mse = torch.mean((y_lum-x_lum)**2, dim=[1,2])
             psnr = 20*torch.log10(torch.tensor(self.val_max-self.val_min, dtype=torch.float).cuda(self.gpu)) - 10*torch.log10(mse)
             return torch.mean(psnr)
 
+def rgb_to_ycbcr(image):
+    r"""Convert an RGB image to YCbCr.
+
+    Args:
+        image (torch.Tensor): RGB Image to be converted to YCbCr.
+
+    Returns:
+        torch.Tensor: YCbCr version of the image.
+    """
+
+    if not torch.is_tensor(image):
+        raise TypeError("Input type is not a torch.Tensor. Got {}".format(
+            type(image)))
+
+    if len(image.shape) < 3 or image.shape[-3] != 3:
+        raise ValueError("Input size must have a shape of (*, 3, H, W). Got {}"
+                         .format(image.shape))
+
+    r: torch.Tensor = image[..., 0, :, :]
+    g: torch.Tensor = image[..., 1, :, :]
+    b: torch.Tensor = image[..., 2, :, :]
+
+    delta = .5
+    y: torch.Tensor = .299 * r + .587 * g + .114 * b
+    cb: torch.Tensor = (b - y) * .564 + delta
+    cr: torch.Tensor = (r - y) * .713 + delta
+    return torch.stack((y, cb, cr), -3)
