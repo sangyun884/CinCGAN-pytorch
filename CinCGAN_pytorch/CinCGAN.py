@@ -26,7 +26,8 @@ class CinCGAN():
             
         torch.cuda.set_device(gpu)
 
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # self.device = torch.device('cuda:'+ args.gpu if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cpu')
         
         print("GPU : ", gpu)
         self.lr = args.inner_lr
@@ -82,9 +83,9 @@ class CinCGAN():
         self.use_psnr = args.use_psnr
         self.psnr_freq = args.psnr_freq
         self.ckpt_save_path = args.ckpt_save_path
-        if os.path.isdir('/mnt/nas/workspace/sr1/target_fid_statistics'):
-            self.fid_mean = np.load(os.path.join('/mnt/nas/workspace/sr1/target_fid_statistics', 'm2.npy'))
-            self.fid_cov = np.load(os.path.join('/mnt/nas/workspace/sr1/target_fid_statistics', 's2.npy'))
+        if os.path.isdir('/mnt/workspace/CinCGAN-pytorch/CinCGAN_pytorch/target_fid_statistics'):
+            self.fid_mean = np.load(os.path.join('/mnt/workspace/CinCGAN-pytorch/CinCGAN_pytorch/target_fid_statistics', 'm2.npy'))
+            self.fid_cov = np.load(os.path.join('/mnt/workspace/CinCGAN-pytorch/CinCGAN_pytorch/target_fid_statistics', 's2.npy'))
             
 
         self.inception = None
@@ -120,9 +121,9 @@ class CinCGAN():
 
         """ Define Outer Cycle Models """
 
-        self.EDSR = edsr.EDSR(gpu = self.gpu, scale_factor=self.scale_factor).cuda(self.gpu) # should be changed
-        self.G3 = ResnetGenerator(dsple=True, scale_factor = self.scale_factor).cuda(self.gpu)
-        self.D2 = Discriminator(is_inner=False, scale_factor = self.scale_factor).cuda(self.gpu)
+        self.EDSR = edsr.EDSR(device = self.device, scale_factor=self.scale_factor).to(self.device) # should be changed
+        self.G3 = ResnetGenerator(dsple=True, scale_factor = self.scale_factor).to(self.device)
+        self.D2 = Discriminator(is_inner=False, scale_factor = self.scale_factor).to(self.device)
 
 
         """ Define Loss """
@@ -139,8 +140,8 @@ class CinCGAN():
             self.D1_backward = torch.nn.parallel.DistributedDataParallel(self.D1_backward, device_ids=[self.gpu], broadcast_buffers=False)
             
             """ Define Loss """
-            self.MSE_loss = nn.MSELoss().cuda(self.gpu)
-            self.TV_loss= TVLoss().cuda(self.gpu)
+            self.MSE_loss = nn.MSELoss().to(self.device)
+            self.TV_loss= TVLoss().to(self.device)
         
         
 
@@ -212,8 +213,8 @@ class CinCGAN():
             
 
         
-        self.test_s_loader = DataLoader(self.test_s_dataset, batch_size=self.test_batch_size, shuffle=False)
-        self.test_t_loader = DataLoader(self.test_t_dataset, batch_size=self.test_batch_size, shuffle=False)
+        self.test_s_loader = DataLoader(self.test_s_dataset, batch_size=self.test_batch_size, shuffle=False, num_workers=self.num_workers)
+        self.test_t_loader = DataLoader(self.test_t_dataset, batch_size=self.test_batch_size, shuffle=False, num_workers=self.num_workers)
         
         
     
@@ -229,11 +230,11 @@ class CinCGAN():
             model.train()
         if self.skip_inner:
             self.G1_forward.eval()
-        start_iter = 1
+        start_iter = 0
         print(f"NEPTUNE : {self.neptune}")
         if self.neptune:
             neptune.init(project_qualified_name='ml.swlee/CinCGAN',
-                        api_token = 'YOUR_TOKEN')
+                        api_token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5haSIsImFwaV91cmwiOiJodHRwczovL3VpLm5lcHR1bmUuYWkiLCJhcGlfa2V5IjoiYmVhNmFlOGMtZDRmZS00NzIyLWJkYzgtNTcyZTk0ZTM5YzM1In0=')
             neptune.create_experiment(params = self.params)
         if self.resume:
             start_iter = self.resume_iter
@@ -252,7 +253,7 @@ class CinCGAN():
         y_test = transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))(y_test)
         y_test = torch.unsqueeze(y_test,0)
         y_test = y_test.to(self.device)
-        y_test_big = y_test_big.cuda(self.gpu)
+        y_test_big = y_test_big.to(self.device)
 
 
                 
@@ -260,13 +261,13 @@ class CinCGAN():
         if self.ngpus_per_node>1:
             if self.gpu==0:
                 x_test, _ = iter(self.test_s_loader).next()
-                x_test = x_test.cuda(self.gpu)
+                x_test = x_test.to(self.device)
 
                 y_test_big, _ = iter(self.test_t_loader).next()
                 assert x_test.size()[0] == y_test_big.size()[0] == 1
                 y_test = transforms.Resize(x_test.size()[-2:], interpolation=Image.BICUBIC)(tensor2pil(y_test_big[0])) # To resize, tensor should be converted to pillow image.
                 y_test = torch.unsqueeze(transforms.ToTensor()(y_test),0)
-                y_test = y_test.cuda(self.gpu)
+                y_test = y_test.to(self.device)
                 
                 
                 if self.use_psnr: base_d = self.PSNR(x_test*0.5 + 0.5, y_test*0.5 + 0.5)
@@ -304,14 +305,14 @@ class CinCGAN():
                 
             
             if self.ngpus_per_node>1:
-                x, y = x.cuda(self.gpu), y.cuda(self.gpu)
+                x, y = x.to(self.device), y.to(self.device)
                 
 
 
             x, y = x.to(self.device), y.to(self.device)
             
 
-            y_big = y_big.cuda(self.gpu)
+            y_big = y_big.to(self.device)
             print(f"x.shape : {x.size()}, y.shape : {y.size()}, y_big.shape : {y_big.size()}")
 
 
@@ -346,8 +347,8 @@ class CinCGAN():
             
                 
                 # Discriminator loss
-                dis1_forward_ad_loss = self.MSE_loss(dis1_forward_predicted_fake, torch.zeros_like(dis1_forward_predicted_fake).cuda(self.gpu)) + self.MSE_loss(dis1_forward_predicted_real, torch.ones_like(dis1_forward_predicted_real).cuda(self.gpu))
-                dis1_backward_ad_loss = self.MSE_loss(dis1_backward_predicted_fake, torch.zeros_like(dis1_backward_predicted_fake).cuda(self.gpu)) + self.MSE_loss(dis1_backward_predicted_real, torch.ones_like(dis1_backward_predicted_real).cuda(self.gpu))
+                dis1_forward_ad_loss = self.MSE_loss(dis1_forward_predicted_fake, torch.zeros_like(dis1_forward_predicted_fake).to(self.device)) + self.MSE_loss(dis1_forward_predicted_real, torch.ones_like(dis1_forward_predicted_real).to(self.device))
+                dis1_backward_ad_loss = self.MSE_loss(dis1_backward_predicted_fake, torch.zeros_like(dis1_backward_predicted_fake).to(self.device)) + self.MSE_loss(dis1_backward_predicted_real, torch.ones_like(dis1_backward_predicted_real).to(self.device))
 
                 dis1_loss = dis1_forward_ad_loss + dis1_backward_ad_loss
 
@@ -371,8 +372,8 @@ class CinCGAN():
                 dis1_backward_predicted_fake = torch.mean(dis1_backward_output_fake, dim = [1,2,3])
                 
                 # Adversarial loss
-                g1_forward_ad_loss = self.MSE_loss(dis1_forward_predicted_fake, torch.ones_like(dis1_forward_predicted_fake).cuda(self.gpu))
-                g1_backward_ad_loss = self.MSE_loss(dis1_backward_predicted_fake, torch.ones_like(dis1_backward_predicted_fake).cuda(self.gpu))
+                g1_forward_ad_loss = self.MSE_loss(dis1_forward_predicted_fake, torch.ones_like(dis1_forward_predicted_fake).to(self.device))
+                g1_backward_ad_loss = self.MSE_loss(dis1_backward_predicted_fake, torch.ones_like(dis1_backward_predicted_fake).to(self.device))
 
                 # Cycle consistency loss
                 g1_forward_cycle_loss = self.MSE_loss(self.G1_backward(fake_forward), x)
@@ -428,7 +429,7 @@ class CinCGAN():
             if inner==True:
                 if step%50==0:
 
-                    tensor_imsave(img_t, f'/mnt/nas/workspace/sr1/imgs', f'img{step}.png')
+                    tensor_imsave(img_t, f'/mnt/workspace/CinCGAN-pytorch/CinCGAN_pytorch/imgs', f'img{step}.png')
                 if self.skip_inner == False: self.G1_forward.train()
             
             if inner==True:
@@ -454,7 +455,7 @@ class CinCGAN():
             # Check D2
             print(f"D2 prediction Avg -- fake : {torch.mean(d2_predicted_fake):0.4f}  real : {torch.mean(d2_predicted_real):0.4f}")
 
-            d2_ad_loss = self.MSE_loss(d2_predicted_fake, torch.zeros_like(d2_predicted_fake).cuda(self.gpu)) + self.MSE_loss(d2_predicted_real, torch.ones_like(d2_predicted_real))
+            d2_ad_loss = self.MSE_loss(d2_predicted_fake, torch.zeros_like(d2_predicted_fake).to(self.device)) + self.MSE_loss(d2_predicted_real, torch.ones_like(d2_predicted_real))
 
             d2_ad_loss.backward()
             self.D2_optim.step()
@@ -492,7 +493,7 @@ class CinCGAN():
             # Check G3
             if self.use_psnr and step%self.psnr_freq==0:
                 with torch.no_grad():
-                    temp = self.G3(y_test_big.cuda(self.gpu)*0.5 + 0.5)
+                    temp = self.G3(y_test_big.to(self.device)*0.5 + 0.5)
                     check_g3 = self.PSNR(temp, x_test*0.5 + 0.5)
 
                 print(f"Check_g3_PSNR : {check_g3:0.4f}")
@@ -534,7 +535,7 @@ class CinCGAN():
                     try:
                         out = self.G1_forward(x_test)    
                         out = self.EDSR(out)
-                        tensor_imsave(out[0], '/mnt/nas/workspace/sr1/finetuning', f'{step}.png', denormalization=False)
+                        tensor_imsave(out[0], '/mnt/workspace/CinCGAN-pytorch/CinCGAN_pytorch/imgs_outer', f'{step}.png', denormalization=False)
                     except:
                         None
             if step%self.save_freq==0:
@@ -582,7 +583,7 @@ class CinCGAN():
         if self.use_psnr: test_t_iter = iter(self.test_t_loader)
         for i in range(idx+1):    
             x_test, x_name = test_s_iter.next()
-        x_test = x_test.cuda(self.gpu)
+        x_test = x_test.to(self.device)
         
         self.G1_forward.eval()
         
@@ -591,7 +592,7 @@ class CinCGAN():
             for i in range(idx+1):
                 y_test, _ = test_t_iter.next()
         
-            y_test = y_test.cuda(self.gpu)    
+            y_test = y_test.to(self.device) 
         
             
         with torch.no_grad():
@@ -600,7 +601,7 @@ class CinCGAN():
         
         if inner==True :
             for img, fname in zip(fake_inner, x_name):
-                tensor_imsave(img, '/mnt/nas/workspace/sr1/test', fname)
+                tensor_imsave(img, '/mnt/workspace/CinCGAN-pytorch/CinCGAN_pytorch/test', fname)
             if self.use_psnr:
                 psnr = self.PSNR(denorm(y_test),fake_inner)
                 
@@ -613,7 +614,7 @@ class CinCGAN():
         with torch.no_grad():
             fake_outer = self.EDSR(fake_inner)
         for img, fname in zip(fake_outer, x_name):
-            tensor_imsave(fake_outer[0], '/mnt/nas/workspace/sr1/test', fname, denormalization=False)
+            tensor_imsave(fake_outer[0], '/mnt/workspace/CinCGAN-pytorch/CinCGAN_pytorch/test', fname, denormalization=False)
         if self.use_psnr:
             #psnr = -10*torch.log10(torch.mean((denorm(y_test[0])-fake_outer[0])**2))
             psnr = self.PSNR(denorm(y_test), fake_outer)
@@ -645,9 +646,9 @@ class CinCGAN():
                 y = transforms.ToTensor()(y)
                 y = transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))(y)
                 y = torch.unsqueeze(y,0)
-                y = y.cuda(self.gpu)
+                y = y.to(self.device)
 
-                x, y_big = x.cuda(self.gpu), y_big.cuda(self.gpu)
+                x, y_big = x.to(self.device), y_big.to(self.device)
                 # fake_inner = self.G1_forward(x)
                 out = self.G1_forward(x)
                 
@@ -684,7 +685,7 @@ class CinCGAN():
         for i in range(iters):
             with torch.no_grad():
                 x_fid, _ = fid_iter.next()
-                x_fid = x_fid.cuda(self.gpu)
+                x_fid = x_fid.to(self.device)
                 
                 out = self.G1_forward(x_fid)
                 if self.inner==False:
@@ -694,3 +695,31 @@ class CinCGAN():
                     d = True if self.inner else False
                     tensor_imsave(img, self.fid_save_path, f'{num}.png', denormalization = d, prt = False)
                     num += 1
+    def inference(self):# SR inference for whole data
+        self.G1_forward.eval()
+        self.EDSR.eval()
+        tmp = self.max_hw
+        
+        i=1
+        test_iter = iter(self.test_s_loader)
+        for x, x_name in test_iter:
+            with torch.no_grad():
+                t = time.time()
+                x = x.to(self.device)
+                out = self.G1_forward(x)
+                out = self.EDSR(out)
+                print(time.time()-t)
+            for img in out:
+                img = torch.unsqueeze(img, 0)
+                print("before:", img.size())
+                img = nn.functional.interpolate(img, size=(4096,4096), mode='bicubic')
+                print("after:", img.size())
+                img = img[0]
+                
+                try:
+                    tensor_imsave(img, f"/mnt/workspace/CinCGAN-pytorch/CinCGAN_pytorch/k3a2aerial/trainval",f"{x_name[0]}", denormalization=False)
+                except:
+                    tensor_imsave(img, f"/mnt/workspace/CinCGAN-pytorch/CinCGAN_pytorch/k3a2aerial/trainval",f"{x_name}", denormalization=False)
+                print(f"{i}/{len(self.test_s_dataset)}")
+                i+=1
+        self.max_hw = tmp
