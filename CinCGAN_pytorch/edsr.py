@@ -9,12 +9,12 @@ def default_conv(in_channels, out_channels, kernel_size, bias=True):
         in_channels, out_channels, kernel_size,
         padding=(kernel_size//2), bias=bias)
 class EDSR(nn.Module):
-    def __init__(self, conv=default_conv, synchronize_norm = True, gpu=0, scale_factor = 4):
+    def __init__(self, conv=default_conv, synchronize_norm = True, device=None, scale_factor = 4):
         # synchronize_norm : True -- suppose that input was normalized mean 0.5, std 0.5   False -- suppose that input is in [0,1]
         super(EDSR, self).__init__()
 
         self.synchronize_norm = synchronize_norm
-        self.gpu = gpu
+        self.device = device
         # should be changed
         n_resblocks = 32
         n_feats = 256
@@ -49,18 +49,18 @@ class EDSR(nn.Module):
         if self.synchronize_norm:
             # When input is normalized mean 0.5, std 0.5
             x = x*0.5
-            x += torch.tensor([[[0.0512]], [[0.0629]], [[0.096]]]).cuda(self.gpu)
+            x += torch.tensor([[[0.0512]], [[0.0629]], [[0.096]]], device=self.device)
             
         else:
             # When input is in [0,1]
-            x -= torch.tensor([[[0.4488]], [[0.4371]], [[0.4040]]]).cuda(self.gpu)
+            x -= torch.tensor([[[0.4488]], [[0.4371]], [[0.4040]]], device=self.device)
         x = self.head(x)
 
         res = self.body(x)
         res += x
 
         x = self.tail(res)
-        x += torch.tensor([[[0.4488]], [[0.4371]], [[0.4040]]]).cuda(self.gpu) # denormalization
+        x += torch.tensor([[[0.4488]], [[0.4371]], [[0.4040]]], device=self.device) # denormalization
         return x 
     def load_state_dict(self, state_dict, strict=True):
         own_state = self.state_dict()
